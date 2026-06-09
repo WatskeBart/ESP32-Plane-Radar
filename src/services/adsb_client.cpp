@@ -232,20 +232,25 @@ bool fetchUpdate(double center_lat, double center_lon, float fetch_radius_km) {
     return false;
   }
 
-  String payload;
-  if (!readResponseBodyWithPoll(http, payload)) {
-    Serial.println("adsb: empty response");
-    http.end();
-    return false;
-  }
-  http.end();
+  // String payload;
+  // if (!readResponseBodyWithPoll(http, payload)) {
+  //   Serial.println("adsb: empty response");
+  //   http.end();
+  //   return false;
+  // }
 
+  WiFiClient* stream = http.getStreamPtr();
+  if (!stream) { 
+    http.end(); return false; 
+  }
+  
   JsonDocument doc;
-  const DeserializationError err = deserializeJson(doc, payload);
+  const DeserializationError err = deserializeJson(doc, *stream);
   if (err) {
     Serial.printf("adsb: JSON parse error: %s\n", err.c_str());
     return false;
   }
+  http.end();
 
   JsonArray ac = doc["ac"].as<JsonArray>();
   if (ac.isNull()) {
