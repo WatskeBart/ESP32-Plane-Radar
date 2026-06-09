@@ -215,6 +215,11 @@ bool fetchUpdate(double center_lat, double center_lon, float fetch_radius_km) {
   url += "/dist/";
   url += String(dist_nm, 1);
 
+  if (ESP.getFreeHeap() < 50000) {
+    Serial.printf("adsb: heap too low (%u), skipping\n", ESP.getFreeHeap());
+    return false;
+  }
+
   WiFiClientSecure client;
   client.setInsecure();
 
