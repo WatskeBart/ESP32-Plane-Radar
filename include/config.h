@@ -20,6 +20,9 @@ constexpr unsigned long kWifiPortalTimeoutSec = 0;  // 0 = no timeout while conf
 constexpr unsigned long kWifiConnectingFrameMs = 50;
 /** Wait after disconnect before reconnecting (avoids portal on brief drops). */
 constexpr unsigned long kWifiDownGraceMs = 4000;
+/** Hardcoded fallback Wi-Fi credentials (leave SSID empty to skip). */
+constexpr char kWifiFallbackSSID[] = "";
+constexpr char kWifiFallbackPass[] = "";
 /** Minimum interval between background reconnect tries. */
 constexpr unsigned long kWifiReconnectIntervalMs = 15000;
 

@@ -195,6 +195,7 @@ void resetWifiCredentials() {
 }
 
 void onConfigPortalApStarted(WiFiManager*) {
+  WiFi.setTxPower(WIFI_POWER_8_5dBm);
   statusScreenPortal();
 #ifdef WM_MDNS
   if (MDNS.begin(config::kPortalHostname)) {
@@ -258,6 +259,7 @@ void stopLanWebPortal() {
 
 void prepareSta() {
   WiFi.mode(WIFI_STA);
+  WiFi.setTxPower(WIFI_POWER_8_5dBm);
   WiFi.setSleep(WIFI_PS_NONE);
   WiFi.setAutoReconnect(true);
 }
@@ -464,6 +466,14 @@ bool wifiSetupConnect() {
   }
 
   if (storedWifiCredentials() && connectSavedNetwork(true)) {
+    WiFi.setAutoReconnect(true);
+    Serial.printf("Connected: %s  IP %s\n", WiFi.SSID().c_str(),
+                  WiFi.localIP().toString().c_str());
+    return true;
+  }
+
+  if (strlen(config::kWifiFallbackSSID) > 0 &&
+      tryConnectWithUi(config::kWifiFallbackSSID, config::kWifiFallbackPass, true)) {
     WiFi.setAutoReconnect(true);
     Serial.printf("Connected: %s  IP %s\n", WiFi.SSID().c_str(),
                   WiFi.localIP().toString().c_str());
