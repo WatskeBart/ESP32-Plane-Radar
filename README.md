@@ -30,7 +30,7 @@ During setup you can also hold BOOT at power-on to force a credential reset (sam
 2. Open **`http://plane-radar.local`** (preferred) or **`http://192.168.4.1`** — both are shown on the yellow setup screen; captive portal may open automatically
 3. Set home Wi‑Fi, then save
 
-Or set a hardcoded AP in code.
+Or setup hardcoded AP credentials in [config.h](include/config.h#L23)
 
 **Reconfigure anytime** (after the device is on your network):
 
@@ -53,7 +53,7 @@ Saving returns to this page (not the main menu), so settings can be tweaked with
 | **Show aircraft type** | Toggle the middle tag line (yellow text, e.g. `B738`) |
 | **Show altitude** | Toggle the bottom tag line (blue text) |
 | **Show altitude in metres** | Converts altitude tag from feet to metres (e.g. `35000 ft` → `10668m`) |
-| **Watch callsign prefixes** | Comma-separated list of prefixes (e.g. `KLM,BAW`); matching aircraft are highlighted in yellow |
+| **Watch callsign prefixes** | Comma-separated list of prefixes (e.g. `KLM,BAW`); only matching aircraft are shown — all others are hidden |
 | **Range presets** | Four configurable ring-3 distances in km (must be strictly increasing, 0.5–500 km) |
 
 ### Locations page (`/locs`)
@@ -70,7 +70,7 @@ After a reset, the device reboots and shows the setup screen immediately (no "Co
 - White **N / S / E / W** at the bezel; range label on the **east** spoke (ring 3 = ¾ of outer radius)
 - White center dot
 
-Layout and colors: `include/ui/radar_theme.h`.
+Layout and colors: [`include/ui/radar_theme.h`](include/ui/radar_theme.h).
 
 ### Range presets
 
@@ -96,13 +96,13 @@ Presets and miles/km choice persist across reboot (`planeradar` NVS namespace). 
 - **Inside the outer ring** — red heading triangle, magenta speed vector (clipped at the ring), callsign / type / altitude tags
 - **Outside the ring** (still within ADS-B fetch) — small **red dot on the screen rim** at the correct bearing (direction cue; not distance-accurate past the ring)
 - **Tags** — placed toward the **center**: west (left) → tag on the **right** of the symbol; east (right) → tag on the **left**; each of the three lines can be hidden individually via the portal
-- **Watched aircraft** — aircraft whose callsign starts with any configured prefix are drawn in **yellow** instead of red
+- **Watch filter** — when prefixes are configured, only aircraft whose callsign starts with a matching prefix are shown; all others are hidden
 
 As range decreases (or aircraft approach), targets move inward; beyond-ring dots become full symbols when they cross the outer ring.
 
 ### Aircraft count overlay
 
-When enabled via the portal, the total number of tracked aircraft is shown in bright green at the bottom of the radar disc. Toggle with the **Show aircraft count on display** checkbox.
+When enabled via the portal, the number of visible aircraft is shown in bright green at the bottom of the radar disc. When a watch filter is active, the count reflects only the matching aircraft. Toggle with the **Show aircraft count on display** checkbox.
 
 ### Stale data indicator
 
@@ -118,12 +118,12 @@ A small dot in the top-right corner (between the outer ring and the screen edge)
 
 - Source: `https://opendata.adsb.fi/api/v3/`
 - Fetch radius: `ui::radar::fetchRadiusKm()` — scales with the active preset to roughly the screen edge (so rim dots have data)
-- Poll interval: `kAdsbFetchIntervalMs` (3 s) in `config.h`
-- Ground aircraft hidden by default (`kAdsbShowGroundAircraft`)
+- Poll interval: [`kAdsbFetchIntervalMs`](include/config.h#L55) (3 s)
+- Ground aircraft hidden by default [`kAdsbShowGroundAircraft`](include/config.h#L59)
 
 ## Configuration
 
-Edit **`include/config.h`** for hardware and behavior:
+Edit **[`include/config.h`](include/config.h)** for hardware and behavior:
 
 | Area | Keys / notes |
 | --- | --- |
@@ -186,7 +186,7 @@ src/
 ## Build
 
 ```bash
-pio run -t upload
+pio run -e supermini -t upload
 pio device monitor
 ```
 
