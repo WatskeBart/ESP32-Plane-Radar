@@ -68,53 +68,57 @@ void stopLanWebPortal();
 bool wifiLinkUp();
 
 constexpr int kCoordParamLen = 20;
-constexpr char kCoordInputAttrs[] =
-    " type=\"number\" step=\"0.000001\"";
 
-WiFiManagerParameter s_param_lat("radar_lat", "Latitude (deg)", "0",
-                                kCoordParamLen, kCoordInputAttrs);
-WiFiManagerParameter s_param_lon("radar_lon", "Longitude (deg)", "0",
-                                kCoordParamLen, kCoordInputAttrs);
-
-char s_miles_checkbox_attrs[32] = "type=\"checkbox\"";
-WiFiManagerParameter s_param_miles("use_miles", "Display distances in miles", "T", 2,
-                                   s_miles_checkbox_attrs, WFM_LABEL_AFTER);
-
-char s_runways_checkbox_attrs[32] = "type=\"checkbox\"";
-WiFiManagerParameter s_param_runways("show_runways", "Show airport runways", "T", 2,
-                                     s_runways_checkbox_attrs, WFM_LABEL_AFTER);
-
-void refreshPortalParamDefaults() {
+void handleRadarPage() {
   char lat_buf[kCoordParamLen + 1];
   char lon_buf[kCoordParamLen + 1];
   snprintf(lat_buf, sizeof(lat_buf), "%.6f", services::location::lat());
   snprintf(lon_buf, sizeof(lon_buf), "%.6f", services::location::lon());
-  s_param_lat.setValue(lat_buf, kCoordParamLen);
-  s_param_lon.setValue(lon_buf, kCoordParamLen);
-  snprintf(s_miles_checkbox_attrs, sizeof(s_miles_checkbox_attrs), "type=\"checkbox\"%s",
-           ui::radar::useMiles() ? " checked" : "");
-  s_param_miles.setValue("T", 2);
-  snprintf(s_runways_checkbox_attrs, sizeof(s_runways_checkbox_attrs),
-           "type=\"checkbox\"%s", ui::radar::showRunways() ? " checked" : "");
-  s_param_runways.setValue("T", 2);
+
+  String page = FPSTR(HTTP_HEAD_START);
+  page.replace("{v}", "Configure Radar");
+  page += FPSTR(HTTP_STYLE);
+  page += FPSTR(HTTP_SCRIPT);
+  String head_end = FPSTR(HTTP_HEAD_END);
+  head_end.replace("{c}", "");
+  page += head_end;
+  page += F("<h1>Configure Radar</h1>"
+            "<form method='POST' action='/radarsave'>"
+            "<label for='rlat'>Latitude (deg)</label>"
+            "<input id='rlat' name='radar_lat' type='number' step='0.000001' value='");
+  page += lat_buf;
+  page += F("'><br/>"
+            "<label for='rlon'>Longitude (deg)</label>"
+            "<input id='rlon' name='radar_lon' type='number' step='0.000001' value='");
+  page += lon_buf;
+  page += F("'><br/><br/>"
+            "<input type='checkbox' id='use_miles' name='use_miles'");
+  if (ui::radar::useMiles()) page += F(" checked");
+  page += F("> <label for='use_miles'>Display distances in miles</label><br/>"
+            "<input type='checkbox' id='show_runways' name='show_runways'");
+  if (ui::radar::showRunways()) page += F(" checked");
+  page += F("> <label for='show_runways'>Show airport runways</label><br/><br/>"
+            "<button type='submit'>Save</button></form>");
+  page += FPSTR(HTTP_BACKBTN);
+  page += FPSTR(HTTP_END);
+  s_wm.server->send(200, "text/html", page);
 }
 
-void onPortalParamsSaved() {
-  if (!services::location::saveFromStrings(s_param_lat.getValue(),
-                                           s_param_lon.getValue())) {
+void handleRadarSave() {
+  const String lat_str = s_wm.server->arg("radar_lat");
+  const String lon_str = s_wm.server->arg("radar_lon");
+  if (!services::location::saveFromStrings(lat_str.c_str(), lon_str.c_str())) {
     Serial.println("Invalid lat/lon in portal — keeping previous location");
   }
-  ui::radar::saveMilesFromPortal(s_param_miles.getValue());
-  ui::radar::saveRunwaysFromPortal(s_param_runways.getValue());
+  ui::radar::saveMilesFromPortal(s_wm.server->arg("use_miles").c_str());
+  ui::radar::saveRunwaysFromPortal(s_wm.server->arg("show_runways").c_str());
+  s_wm.server->sendHeader("Location", "/");
+  s_wm.server->send(302, "text/plain", "");
 }
 
-void attachPortalParams(WiFiManager& wm) {
-  refreshPortalParamDefaults();
-  wm.addParameter(&s_param_lat);
-  wm.addParameter(&s_param_lon);
-  wm.addParameter(&s_param_miles);
-  wm.addParameter(&s_param_runways);
-  wm.setSaveParamsCallback(onPortalParamsSaved);
+void setupRadarRoutes() {
+  s_wm.server->on("/radar", HTTP_GET, handleRadarPage);
+  s_wm.server->on("/radarsave", HTTP_POST, handleRadarSave);
 }
 
 void markForceConfigPortal() {
@@ -224,7 +228,12 @@ void ensureWifiManager() {
                            IPAddress(255, 255, 255, 0));
   s_wm.setHostname(config::kPortalHostname);
   s_wm.setAPCallback(onConfigPortalApStarted);
-  attachPortalParams(s_wm);
+  std::vector<const char*> menu = {"wifi", "info", "exit", "sep", "custom"};
+  s_wm.setMenu(menu);
+  s_wm.setCustomMenuHTML(
+      "<form action='/radar'  method='get'><button>Configure Radar</button></form><br/>\n"
+      "<form action='/update' method='get'><button>OTA Update</button></form><br/>\n");
+  s_wm.setWebServerCallback(setupRadarRoutes);
   s_wm_configured = true;
 }
 
@@ -233,7 +242,6 @@ void startLanWebPortal() {
       s_wm.getConfigPortalActive()) {
     return;
   }
-  refreshPortalParamDefaults();
   WiFi.mode(WIFI_STA);
   s_wm.setConfigPortalBlocking(false);
 #ifdef WM_MDNS
