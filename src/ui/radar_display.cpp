@@ -3,8 +3,11 @@
 #include <lgfx/v1/lgfx_fonts.hpp>
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
 #include "config.h"
 #include "hardware/display.h"
@@ -30,6 +33,8 @@ uint16_t kColorTagType = 0x5DFF;
 uint16_t kColorTagAltitude = 0xFFE0;
 uint16_t kColorRunway = 0x4D5F;
 uint16_t kColorRunwayLabel = 0x7DFF;
+uint16_t kColorWatched = 0xFFE0;
+uint16_t kColorCount = 0x07E0;
 
 }  // namespace radar
 
@@ -143,7 +148,7 @@ void initLabelMetrics() {
   char label[12];
   for (size_t i = 0; i < radar::kRangePresetCount; ++i) {
     for (bool miles : {false, true}) {
-      radar::formatRing3Label(label, sizeof(label), radar::kRangePresets[i].ring3_km,
+      radar::formatRing3Label(label, sizeof(label), radar::rangePresets()[i].ring3_km,
                               miles);
       const int w = tft.textWidth(label);
       if (w > s_scale_label_max_w) {
@@ -197,6 +202,10 @@ void initPalette() {
       tft.color565(radar::kRunwayR, radar::kRunwayG, radar::kRunwayB);
   radar::kColorRunwayLabel = tft.color565(radar::kRunwayLabelR, radar::kRunwayLabelG,
                                           radar::kRunwayLabelB);
+  radar::kColorWatched =
+      tft.color565(radar::kWatchedR, radar::kWatchedG, radar::kWatchedB);
+  radar::kColorCount =
+      tft.color565(radar::kCountR, radar::kCountG, radar::kCountB);
 }
 
 constexpr float kKmPerDeg = 111.0f;
@@ -378,26 +387,30 @@ void applyTagStyle() {
   }
 }
 
+void formatAltDisplay(const services::adsb::Aircraft& plane, char* buf, size_t len) {
+  if (plane.alt[0] == '\0') { buf[0] = '\0'; return; }
+  if (!std::isnan(plane.alt_ft) && radar::useMeters()) {
+    snprintf(buf, len, "%dm", static_cast<int>(lroundf(plane.alt_ft * 0.3048f)));
+  } else {
+    strncpy(buf, plane.alt, len - 1);
+    buf[len - 1] = '\0';
+  }
+}
+
 int measureTagBlockWidth(const services::adsb::Aircraft& plane) {
   applyTagStyle();
   int max_w = 0;
-  if (plane.callsign[0] != '\0') {
-    const int w = s_draw->textWidth(plane.callsign);
-    if (w > max_w) {
-      max_w = w;
-    }
-  }
-  if (plane.type[0] != '\0') {
-    const int w = s_draw->textWidth(plane.type);
-    if (w > max_w) {
-      max_w = w;
-    }
-  }
-  if (plane.alt[0] != '\0') {
-    const int w = s_draw->textWidth(plane.alt);
-    if (w > max_w) {
-      max_w = w;
-    }
+  auto check = [&](const char* s) {
+    if (s[0] == '\0') return;
+    const int w = s_draw->textWidth(s);
+    if (w > max_w) max_w = w;
+  };
+  if (radar::showTagCallsign()) check(plane.callsign);
+  if (radar::showTagType())     check(plane.type);
+  if (radar::showTagAlt()) {
+    char alt_buf[12];
+    formatAltDisplay(plane, alt_buf, sizeof(alt_buf));
+    check(alt_buf);
   }
   return max_w;
 }
@@ -406,14 +419,20 @@ void drawAircraftTag(int x, int y, const services::adsb::Aircraft& plane) {
   initTagLabelMetrics();
   applyTagStyle();
 
-  const int line_h = s_draw->fontHeight();
-  const int block_w = measureTagBlockWidth(plane);
-  const int block_h = line_h * 3;
-  int ly = y - block_h / 2;
+  const bool show_cs  = radar::showTagCallsign() && plane.callsign[0] != '\0';
+  const bool show_tp  = radar::showTagType()     && plane.type[0]     != '\0';
+  char alt_buf[12];
+  formatAltDisplay(plane, alt_buf, sizeof(alt_buf));
+  const bool show_alt = radar::showTagAlt()      && alt_buf[0]        != '\0';
 
-  const int symbol_half =
-      radar::kAircraftNoseLenPx + radar::kAircraftTailHalfPx;
-  // West (left): tag toward center on the right; east (right): tag on the left.
+  const int line_h  = s_draw->fontHeight();
+  const int n_lines = (show_cs ? 1 : 0) + (show_tp ? 1 : 0) + (show_alt ? 1 : 0);
+  if (n_lines == 0) return;
+
+  const int block_w = measureTagBlockWidth(plane);
+  const int block_h = line_h * n_lines;
+
+  const int symbol_half = radar::kAircraftNoseLenPx + radar::kAircraftTailHalfPx;
   const bool tag_on_right = x < radar::kCenterX;
   int anchor_x = 0;
   if (tag_on_right) {
@@ -425,23 +444,21 @@ void drawAircraftTag(int x, int y, const services::adsb::Aircraft& plane) {
     anchor_x = std::max(anchor_x, block_w + 1);
     s_draw->setTextDatum(textdatum_t::top_right);
   }
-  ly = std::max(1, std::min(ly, radar::kSize - block_h - 1));
+  int ly = std::max(1, std::min(y - block_h / 2, radar::kSize - block_h - 1));
 
-  if (plane.callsign[0] != '\0') {
+  if (show_cs) {
     s_draw->setTextColor(radar::kColorLabel, radar::kColorBackground);
     s_draw->drawString(plane.callsign, anchor_x, ly);
+    ly += line_h;
   }
-  ly += line_h;
-
-  if (plane.type[0] != '\0') {
+  if (show_tp) {
     s_draw->setTextColor(radar::kColorTagType, radar::kColorBackground);
     s_draw->drawString(plane.type, anchor_x, ly);
+    ly += line_h;
   }
-  ly += line_h;
-
-  if (plane.alt[0] != '\0') {
+  if (show_alt) {
     s_draw->setTextColor(radar::kColorTagAltitude, radar::kColorBackground);
-    s_draw->drawString(plane.alt, anchor_x, ly);
+    s_draw->drawString(alt_buf, anchor_x, ly);
   }
 }
 
@@ -480,6 +497,67 @@ void sortBeyondDotsFarFirst(BeyondDotDrawItem* items, size_t count) {
     }
     items[j] = key;
   }
+}
+
+bool matchesWatchCallsign(const services::adsb::Aircraft& plane) {
+  const char* watch = radar::watchCallsign();
+  if (watch[0] == '\0') return false;
+  // Iterate comma-separated prefixes; return true on first match.
+  const char* p = watch;
+  while (*p) {
+    const char* end = p;
+    while (*end && *end != ',') ++end;
+    const size_t n = static_cast<size_t>(end - p);
+    if (n > 0) {
+      bool match = true;
+      for (size_t i = 0; i < n; ++i) {
+        if (plane.callsign[i] == '\0') { match = false; break; }
+        if (toupper(static_cast<unsigned char>(plane.callsign[i])) !=
+            toupper(static_cast<unsigned char>(p[i]))) {
+          match = false;
+          break;
+        }
+      }
+      if (match) return true;
+    }
+    p = (*end == ',') ? end + 1 : end;
+  }
+  return false;
+}
+
+void drawStaleIndicator() {
+  const unsigned long age = services::adsb::lastFetchAgeMs();
+  uint16_t color;
+  if (age >= radar::kStaleThresholdRedMs) {
+    color = s_draw->color565(255, 60, 60);
+  } else if (age >= radar::kStaleThresholdOrangeMs) {
+    color = s_draw->color565(255, 165, 0);
+  } else {
+    color = radar::kColorBackground;
+  }
+  s_draw->fillSmoothCircle(radar::kStaleIndicatorX, radar::kStaleIndicatorY,
+                           radar::kStaleIndicatorR, color);
+}
+
+void drawAircraftCount() {
+  if (!radar::showAircraftCount()) return;
+  const size_t n = services::adsb::aircraftCount();
+  char buf[8];
+  snprintf(buf, sizeof(buf), "%u", static_cast<unsigned>(n));
+
+  applyScaleStyle();
+  s_draw->setTextDatum(textdatum_t::top_center);
+
+  const int tw = s_draw->textWidth(buf);
+  const int th = s_draw->fontHeight();
+  constexpr int kPadX = 2;
+  constexpr int kPadY = 1;
+
+  s_draw->fillRect(radar::kCountOverlayX - tw / 2 - kPadX,
+                   radar::kCountOverlayY - kPadY,
+                   tw + kPadX * 2, th + kPadY * 2, radar::kColorBackground);
+  s_draw->setTextColor(radar::kColorCount, radar::kColorBackground);
+  s_draw->drawString(buf, radar::kCountOverlayX, radar::kCountOverlayY);
 }
 
 void drawAircraft() {
@@ -533,9 +611,12 @@ void drawAircraft() {
     const size_t i = items[d].index;
     const int x = items[d].x;
     const int y = items[d].y;
+    const bool watched = matchesWatchCallsign(planes[i]);
+    const uint16_t ac_color = watched ? radar::kColorWatched : radar::kColorAircraft;
+    const uint16_t vec_color = watched ? radar::kColorWatched : radar::kColorTrackVector;
     drawSpeedVector(x, y, planes[i].nose_deg, planes[i].track_deg,
-                    planes[i].gs_knots, radar::kColorTrackVector);
-    drawHeadingTriangle(x, y, planes[i].nose_deg, radar::kColorAircraft);
+                    planes[i].gs_knots, vec_color);
+    drawHeadingTriangle(x, y, planes[i].nose_deg, ac_color);
   }
   for (size_t d = 0; d < draw_count; ++d) {
     const size_t i = items[d].index;
@@ -673,12 +754,35 @@ bool ensureFrameSprite() {
 // sprite, then blit it to the panel in a single pushSprite. Because the panel
 // is updated in one pass, labels never show an erase/redraw gap — no flicker.
 void renderFrame() {
+#ifdef RADAR_DISPLAY_DEBUG
+  Serial.println("DBG: renderFrame start");
+#endif
   drawStaticGrid(s_frame);  // opens its own DrawScope(s_frame)
+#ifdef RADAR_DISPLAY_DEBUG
+  Serial.println("DBG: grid done");
+#endif
   {
     const DrawScope scope(s_frame);
     drawAircraft();
+#ifdef RADAR_DISPLAY_DEBUG
+    Serial.println("DBG: aircraft done");
+#endif
+    drawStaleIndicator();
+#ifdef RADAR_DISPLAY_DEBUG
+    Serial.println("DBG: stale done");
+#endif
+    drawAircraftCount();
+#ifdef RADAR_DISPLAY_DEBUG
+    Serial.println("DBG: count done");
+#endif
   }
+#ifdef RADAR_DISPLAY_DEBUG
+  Serial.println("DBG: about to pushSprite");
+#endif
   s_frame.pushSprite(0, 0);
+#ifdef RADAR_DISPLAY_DEBUG
+  Serial.println("DBG: pushSprite done");
+#endif
   tft.setTextDatum(textdatum_t::top_left);
 }
 
@@ -697,18 +801,34 @@ void radarDisplayDraw() {
   const DrawScope scope(tft);
   drawStaticGrid(tft);
   drawAircraft();
+  drawStaleIndicator();
+  drawAircraftCount();
   tft.setTextDatum(textdatum_t::top_left);
 }
 
 void radarDisplayRefreshAircraft() {
+#ifdef RADAR_DISPLAY_DEBUG
+  Serial.println("DBG: radarDisplayRefreshAircraft");
+#endif
   initPalette();
 
+#ifdef RADAR_DISPLAY_DEBUG
+  const bool spriteOk = ensureFrameSprite();
+  Serial.printf("DBG: sprite ready=%d\n", (int)spriteOk);
+  if (spriteOk) {
+#else
   if (ensureFrameSprite()) {
+#endif
     renderFrame();
     return;
   }
 
   radarDisplayDraw();
+}
+
+void radarDisplayInvalidateLabelMetrics() {
+  s_label_metrics_ready = false;
+  s_tag_label_metrics_ready = false;
 }
 
 }  // namespace ui

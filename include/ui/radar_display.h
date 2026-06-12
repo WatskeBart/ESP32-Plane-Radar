@@ -8,4 +8,7 @@ void radarDisplayDraw();
 /** Redraw aircraft only (blits cached grid; no full-screen clear). */
 void radarDisplayRefreshAircraft();
 
+/** Force label metrics to be recomputed on next draw (call after changing range presets). */
+void radarDisplayInvalidateLabelMetrics();
+
 }  // namespace ui

@@ -13,6 +13,7 @@ struct Aircraft {
   char callsign[9];
   char type[5];
   char alt[12];
+  float alt_ft;  // raw altitude in feet; NAN if unavailable or on-ground
 };
 
 constexpr size_t kMaxAircraft = 64;
@@ -26,5 +27,8 @@ void setPollFn(PollFn fn);
 
 /** Fetch aircraft within fetch_radius_km of center_lat/lon from adsb.fi. */
 bool fetchUpdate(double center_lat, double center_lon, float fetch_radius_km);
+
+/** Milliseconds since the last successful fetch (ULONG_MAX if never fetched). */
+unsigned long lastFetchAgeMs();
 
 }  // namespace services::adsb

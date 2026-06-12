@@ -24,7 +24,7 @@ struct RangePreset {
 
 constexpr float kRing3ToOuterKm = 4.0f / 3.0f;
 
-constexpr RangePreset kRangePresets[] = {
+constexpr RangePreset kDefaultRangePresets[] = {
     {5.0f, 5.0f * kRing3ToOuterKm},
     {10.0f, 10.0f * kRing3ToOuterKm},
     {15.0f, 15.0f * kRing3ToOuterKm},
@@ -32,7 +32,10 @@ constexpr RangePreset kRangePresets[] = {
 };
 
 constexpr size_t kRangePresetCount =
-    sizeof(kRangePresets) / sizeof(kRangePresets[0]);
+    sizeof(kDefaultRangePresets) / sizeof(kDefaultRangePresets[0]);
+
+/** Runtime range presets (loaded from NVS, falls back to kDefaultRangePresets). */
+const RangePreset* rangePresets();
 
 /** Load saved range and distance units from flash. Call once after boot. */
 void rangeInit();
@@ -45,9 +48,27 @@ float fetchRadiusKm();
 
 bool useMiles();
 bool showRunways();
-/** WiFi portal checkbox: "T" = miles, otherwise km. */
+bool showAircraftCount();
+/** Tag item visibility. */
+bool showTagCallsign();
+bool showTagType();
+bool showTagAlt();
+/** Use metres instead of feet for altitude tags. */
+bool useMeters();
+/** WiFi portal checkbox: "T" = checked, empty = unchecked. */
 void saveMilesFromPortal(const char* checkbox_value);
 void saveRunwaysFromPortal(const char* checkbox_value);
+void saveAircraftCountFromPortal(const char* checkbox_value);
+void saveTagCallsignFromPortal(const char* checkbox_value);
+void saveTagTypeFromPortal(const char* checkbox_value);
+void saveTagAltFromPortal(const char* checkbox_value);
+void saveUseMetersFromPortal(const char* checkbox_value);
+/** Save custom ring3 km values (r0..r3 as decimal strings). Ignored if invalid or non-increasing. */
+void saveRangePresetsFromPortal(const char* r0, const char* r1, const char* r2,
+                                const char* r3);
+/** Callsign prefix (or ICAO hex) to highlight; empty string = disabled. Always uppercase. */
+const char* watchCallsign();
+void saveWatchCallsignFromPortal(const char* value);
 void formatRing3Label(char* buf, size_t len, float ring3_km, bool use_miles);
 void formatCurrentRing3Label(char* buf, size_t len);
 /** Reset distance units to km (e.g. with WiFi credential wipe). */

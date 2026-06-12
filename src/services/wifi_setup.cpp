@@ -15,6 +15,7 @@
 
 #include "config.h"
 #include "services/radar_location.h"
+#include "ui/radar_display.h"
 #include "ui/radar_range.h"
 #include "ui/status_screens.h"
 
@@ -75,6 +76,8 @@ void handleRadarPage() {
   snprintf(lat_buf, sizeof(lat_buf), "%.6f", services::location::lat());
   snprintf(lon_buf, sizeof(lon_buf), "%.6f", services::location::lon());
 
+  const ui::radar::RangePreset* presets = ui::radar::rangePresets();
+
   String page = FPSTR(HTTP_HEAD_START);
   page.replace("{v}", "Configure Radar");
   page += FPSTR(HTTP_STYLE);
@@ -82,6 +85,7 @@ void handleRadarPage() {
   String head_end = FPSTR(HTTP_HEAD_END);
   head_end.replace("{c}", "");
   page += head_end;
+
   page += F("<h1>Configure Radar</h1>"
             "<form method='POST' action='/radarsave'>"
             "<label for='rlat'>Latitude (deg)</label>"
@@ -97,8 +101,44 @@ void handleRadarPage() {
   page += F("> <label for='use_miles'>Display distances in miles</label><br/>"
             "<input type='checkbox' id='show_runways' name='show_runways'");
   if (ui::radar::showRunways()) page += F(" checked");
-  page += F("> <label for='show_runways'>Show airport runways</label><br/><br/>"
-            "<button type='submit'>Save</button></form>");
+  page += F("> <label for='show_runways'>Show airport runways</label><br/>"
+            "<input type='checkbox' id='show_count' name='show_count'");
+  if (ui::radar::showAircraftCount()) page += F(" checked");
+  page += F("> <label for='show_count'>Show aircraft count on display</label><br/><br/>"
+            "<b>Aircraft tag items:</b><br/>"
+            "<input type='checkbox' id='show_flight' name='show_flight'");
+  if (ui::radar::showTagCallsign()) page += F(" checked");
+  page += F("> <label for='show_flight'>Show flight number / callsign</label><br/>"
+            "<input type='checkbox' id='show_ac_type' name='show_ac_type'");
+  if (ui::radar::showTagType()) page += F(" checked");
+  page += F("> <label for='show_ac_type'>Show aircraft type</label><br/>"
+            "<input type='checkbox' id='show_alt' name='show_alt'");
+  if (ui::radar::showTagAlt()) page += F(" checked");
+  page += F("> <label for='show_alt'>Show altitude</label><br/>"
+            "<input type='checkbox' id='use_meters' name='use_meters'");
+  if (ui::radar::useMeters()) page += F(" checked");
+  page += F("> <label for='use_meters'>Show altitude in metres (instead of feet)</label><br/><br/>"
+            "<label for='watch_sign'>Watch callsign prefixes (comma-separated, e.g. KLM,BAW — empty = off)</label>"
+            "<input id='watch_sign' name='watch_sign' type='text' maxlength='48' value='");
+  page += ui::radar::watchCallsign();
+  page += F("'><br/><br/>"
+            "<b>Range presets (km, must be increasing):</b><br/>");
+
+  const char* preset_labels[] = {"Preset 1", "Preset 2", "Preset 3", "Preset 4"};
+  const char* preset_names[] = {"range_0", "range_1", "range_2", "range_3"};
+  for (int i = 0; i < 4; ++i) {
+    char val_buf[12];
+    snprintf(val_buf, sizeof(val_buf), "%.1f", presets[i].ring3_km);
+    page += F("<label>");
+    page += preset_labels[i];
+    page += F(": <input name='");
+    page += preset_names[i];
+    page += F("' type='number' step='0.1' min='0.5' max='500' value='");
+    page += val_buf;
+    page += F("'></label><br/>");
+  }
+
+  page += F("<br/><button type='submit'>Save</button></form>");
   page += FPSTR(HTTP_BACKBTN);
   page += FPSTR(HTTP_END);
   s_wm.server->send(200, "text/html", page);
@@ -112,13 +152,128 @@ void handleRadarSave() {
   }
   ui::radar::saveMilesFromPortal(s_wm.server->arg("use_miles").c_str());
   ui::radar::saveRunwaysFromPortal(s_wm.server->arg("show_runways").c_str());
-  s_wm.server->sendHeader("Location", "/");
+  ui::radar::saveAircraftCountFromPortal(s_wm.server->arg("show_count").c_str());
+  ui::radar::saveTagCallsignFromPortal(s_wm.server->arg("show_flight").c_str());
+  ui::radar::saveTagTypeFromPortal(s_wm.server->arg("show_ac_type").c_str());
+  ui::radar::saveTagAltFromPortal(s_wm.server->arg("show_alt").c_str());
+  ui::radar::saveUseMetersFromPortal(s_wm.server->arg("use_meters").c_str());
+  ui::radar::saveWatchCallsignFromPortal(s_wm.server->arg("watch_sign").c_str());
+  ui::radar::saveRangePresetsFromPortal(
+      s_wm.server->arg("range_0").c_str(), s_wm.server->arg("range_1").c_str(),
+      s_wm.server->arg("range_2").c_str(), s_wm.server->arg("range_3").c_str());
+  ui::radarDisplayInvalidateLabelMetrics();
+  s_wm.server->sendHeader("Location", "/radar");
+  s_wm.server->send(302, "text/plain", "");
+}
+
+void handleLocsPage() {
+  const services::location::SavedLocation* locs = services::location::savedLocations();
+  const uint8_t active_slot = services::location::activeLocationIndex();
+
+  String page = FPSTR(HTTP_HEAD_START);
+  page.replace("{v}", "Saved Locations");
+  page += FPSTR(HTTP_STYLE);
+  page += FPSTR(HTTP_SCRIPT);
+  String head_end = FPSTR(HTTP_HEAD_END);
+  head_end.replace("{c}", "");
+  page += head_end;
+  page += F("<h1>Saved Locations</h1>");
+
+  bool any = false;
+  for (uint8_t i = 0; i < services::location::kMaxSavedLocations; ++i) {
+    if (!locs[i].valid) continue;
+    any = true;
+    char lat_buf[kCoordParamLen + 1];
+    char lon_buf[kCoordParamLen + 1];
+    snprintf(lat_buf, sizeof(lat_buf), "%.6f", locs[i].lat);
+    snprintf(lon_buf, sizeof(lon_buf), "%.6f", locs[i].lon);
+
+    page += F("<div style='border:1px solid #aaa;padding:6px;margin-bottom:6px'>");
+    page += F("<b>");
+    page += locs[i].name[0] ? locs[i].name : "(unnamed)";
+    page += F("</b>");
+    if (active_slot == i) page += F(" &#9679;");
+    page += F("<br/><small>");
+    page += lat_buf;
+    page += F(", ");
+    page += lon_buf;
+    page += F("</small><br/>");
+
+    // Use button
+    page += F("<form style='display:inline' method='POST' action='/locssave'>"
+              "<input type='hidden' name='action' value='use'>"
+              "<input type='hidden' name='slot' value='");
+    page += i;
+    page += F("'><button>Use</button></form> ");
+
+    // Delete button
+    page += F("<form style='display:inline' method='POST' action='/locssave'>"
+              "<input type='hidden' name='action' value='delete'>"
+              "<input type='hidden' name='slot' value='");
+    page += i;
+    page += F("'><button>Delete</button></form>");
+    page += F("</div>");
+  }
+  if (!any) {
+    page += F("<p>No saved locations yet.</p>");
+  }
+
+  // Find next free slot
+  int free_slot = -1;
+  for (uint8_t i = 0; i < services::location::kMaxSavedLocations; ++i) {
+    if (!locs[i].valid) { free_slot = i; break; }
+  }
+
+  if (free_slot >= 0) {
+    page += F("<h2>Add Location</h2>"
+              "<form method='POST' action='/locssave'>"
+              "<input type='hidden' name='action' value='save'>"
+              "<input type='hidden' name='slot' value='");
+    page += free_slot;
+    page += F("'>"
+              "<label>Name <input name='name' maxlength='12' value=''></label><br/>"
+              "<label>Latitude <input name='lat' type='number' step='0.000001'></label><br/>"
+              "<label>Longitude <input name='lon' type='number' step='0.000001'></label><br/><br/>"
+              "<button type='submit'>Save</button></form>");
+  } else {
+    page += F("<p><i>Maximum of 3 locations saved.</i></p>");
+  }
+
+  page += FPSTR(HTTP_BACKBTN);
+  page += FPSTR(HTTP_END);
+  s_wm.server->send(200, "text/html", page);
+}
+
+void handleLocsSave() {
+  const String action = s_wm.server->arg("action");
+  const String slot_str = s_wm.server->arg("slot");
+  const uint8_t slot = static_cast<uint8_t>(slot_str.toInt());
+
+  if (action == "use") {
+    if (!services::location::setActiveLocation(slot)) {
+      Serial.printf("Failed to set active location slot %u\n", slot);
+    }
+  } else if (action == "delete") {
+    services::location::deleteLocation(slot);
+  } else if (action == "save") {
+    const String name = s_wm.server->arg("name");
+    const String lat_str = s_wm.server->arg("lat");
+    const String lon_str = s_wm.server->arg("lon");
+    if (!services::location::saveLocation(slot, name.c_str(), lat_str.c_str(),
+                                          lon_str.c_str())) {
+      Serial.println("Invalid location data in portal — slot not saved");
+    }
+  }
+
+  s_wm.server->sendHeader("Location", "/locs");
   s_wm.server->send(302, "text/plain", "");
 }
 
 void setupRadarRoutes() {
   s_wm.server->on("/radar", HTTP_GET, handleRadarPage);
   s_wm.server->on("/radarsave", HTTP_POST, handleRadarSave);
+  s_wm.server->on("/locs", HTTP_GET, handleLocsPage);
+  s_wm.server->on("/locssave", HTTP_POST, handleLocsSave);
 }
 
 void markForceConfigPortal() {
@@ -232,6 +387,7 @@ void ensureWifiManager() {
   s_wm.setMenu(menu);
   s_wm.setCustomMenuHTML(
       "<form action='/radar'  method='get'><button>Configure Radar</button></form><br/>\n"
+      "<form action='/locs'   method='get'><button>Locations</button></form><br/>\n"
       "<form action='/update' method='get'><button>OTA Update</button></form><br/>\n");
   s_wm.setWebServerCallback(setupRadarRoutes);
   s_wm_configured = true;

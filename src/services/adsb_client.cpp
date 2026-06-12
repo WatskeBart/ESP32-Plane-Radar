@@ -5,6 +5,7 @@
 
 #include <ArduinoJson.h>
 
+#include <cmath>
 #include <cstring>
 
 #include "config.h"
@@ -21,6 +22,7 @@ constexpr unsigned long kRequestTimeoutMs = 10000;
 Aircraft s_aircraft[kMaxAircraft];
 size_t s_aircraft_count = 0;
 PollFn s_poll_fn = nullptr;
+unsigned long s_last_success_ms = 0;
 
 void pollNetwork() {
   if (s_poll_fn != nullptr) {
@@ -195,6 +197,13 @@ void fillTagFields(Aircraft* ac, const JsonObject& plane) {
 
   copyJsonStringTrimmed(plane, "t", ac->type, sizeof(ac->type));
   formatAltitudeTag(plane, ac->alt, sizeof(ac->alt));
+
+  float alt = 0.0f;
+  if (readJsonFloat(plane, "alt_baro", &alt) || readJsonFloat(plane, "alt_geom", &alt)) {
+    ac->alt_ft = alt;
+  } else {
+    ac->alt_ft = NAN;
+  }
 }
 
 }  // namespace
@@ -204,6 +213,13 @@ void setPollFn(PollFn fn) { s_poll_fn = fn; }
 size_t aircraftCount() { return s_aircraft_count; }
 
 const Aircraft* aircraftList() { return s_aircraft; }
+
+unsigned long lastFetchAgeMs() {
+  if (s_last_success_ms == 0) {
+    return ULONG_MAX;
+  }
+  return millis() - s_last_success_ms;
+}
 
 bool fetchUpdate(double center_lat, double center_lon, float fetch_radius_km) {
   const float dist_nm = kmToNauticalMiles(fetch_radius_km);
@@ -299,6 +315,7 @@ bool fetchUpdate(double center_lat, double center_lon, float fetch_radius_km) {
   }
 
   s_aircraft_count = n;
+  s_last_success_ms = millis();
   Serial.printf("adsb: %u aircraft\n", static_cast<unsigned>(n));
   return true;
 }

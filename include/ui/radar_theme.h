@@ -89,6 +89,28 @@ constexpr uint8_t kRunwayLabelR = 110;
 constexpr uint8_t kRunwayLabelG = 210;
 constexpr uint8_t kRunwayLabelB = 230;
 
+/** Highlight color for watched-callsign aircraft. */
+constexpr uint8_t kWatchedR = 255;
+constexpr uint8_t kWatchedG = 220;
+constexpr uint8_t kWatchedB = 0;
+
+/** Aircraft count overlay text color (bright green). */
+constexpr uint8_t kCountR = 0;
+constexpr uint8_t kCountG = 220;
+constexpr uint8_t kCountB = 0;
+
+/** Stale-data indicator: small dot in the NE strip between outer ring and display edge. */
+constexpr int kStaleIndicatorX = 200;
+constexpr int kStaleIndicatorY = 40;
+constexpr int kStaleIndicatorR = 4;
+/** Age thresholds (ms) at which indicator turns orange then red. */
+constexpr unsigned long kStaleThresholdOrangeMs = 10000UL;
+constexpr unsigned long kStaleThresholdRedMs = 30000UL;
+
+/** Aircraft count overlay: drawn just inside the outer ring on the south axis. */
+constexpr int kCountOverlayX = kCenterX;
+constexpr int kCountOverlayY = kCenterY + 88;  // distance 88 px south, inside ring (r=107)
+
 extern uint16_t kColorBackground;
 extern uint16_t kColorGrid;
 extern uint16_t kColorLabel;
@@ -99,5 +121,7 @@ extern uint16_t kColorTagType;
 extern uint16_t kColorTagAltitude;
 extern uint16_t kColorRunway;
 extern uint16_t kColorRunwayLabel;
+extern uint16_t kColorWatched;
+extern uint16_t kColorCount;
 
 }  // namespace ui::radar
