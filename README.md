@@ -30,6 +30,8 @@ During setup you can also hold BOOT at power-on to force a credential reset (sam
 2. Open **`http://plane-radar.local`** (preferred) or **`http://192.168.4.1`** — both are shown on the yellow setup screen; captive portal may open automatically
 3. Set home Wi‑Fi, then save
 
+Or setup a hardcoded AP in code
+
 **Reconfigure anytime** (after the device is on your network):
 
 1. Open **`http://plane-radar.local`** or **`http://<device-ip>`** (e.g. from your router or serial log at boot)
