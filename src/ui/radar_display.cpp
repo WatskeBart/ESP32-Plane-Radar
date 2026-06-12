@@ -541,7 +541,17 @@ void drawStaleIndicator() {
 
 void drawAircraftCount() {
   if (!radar::showAircraftCount()) return;
-  const size_t n = services::adsb::aircraftCount();
+  size_t n;
+  if (radar::watchCallsign()[0] != '\0') {
+    const size_t total = services::adsb::aircraftCount();
+    const services::adsb::Aircraft* planes = services::adsb::aircraftList();
+    n = 0;
+    for (size_t i = 0; i < total; ++i) {
+      if (matchesWatchCallsign(planes[i])) ++n;
+    }
+  } else {
+    n = services::adsb::aircraftCount();
+  }
   char buf[8];
   snprintf(buf, sizeof(buf), "%u", static_cast<unsigned>(n));
 
@@ -571,7 +581,9 @@ void drawAircraft() {
   size_t draw_count = 0;
   size_t dot_count = 0;
 
+  const bool watch_active = radar::watchCallsign()[0] != '\0';
   for (size_t i = 0; i < n; ++i) {
+    if (watch_active && !matchesWatchCallsign(planes[i])) continue;
     float dx_km = 0.0f;
     float dy_km = 0.0f;
     float dist_km = 0.0f;
@@ -611,12 +623,9 @@ void drawAircraft() {
     const size_t i = items[d].index;
     const int x = items[d].x;
     const int y = items[d].y;
-    const bool watched = matchesWatchCallsign(planes[i]);
-    const uint16_t ac_color = watched ? radar::kColorWatched : radar::kColorAircraft;
-    const uint16_t vec_color = watched ? radar::kColorWatched : radar::kColorTrackVector;
     drawSpeedVector(x, y, planes[i].nose_deg, planes[i].track_deg,
-                    planes[i].gs_knots, vec_color);
-    drawHeadingTriangle(x, y, planes[i].nose_deg, ac_color);
+                    planes[i].gs_knots, radar::kColorTrackVector);
+    drawHeadingTriangle(x, y, planes[i].nose_deg, radar::kColorAircraft);
   }
   for (size_t d = 0; d < draw_count; ++d) {
     const size_t i = items[d].index;

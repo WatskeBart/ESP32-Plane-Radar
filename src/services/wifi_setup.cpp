@@ -118,7 +118,7 @@ void handleRadarPage() {
             "<input type='checkbox' id='use_meters' name='use_meters'");
   if (ui::radar::useMeters()) page += F(" checked");
   page += F("> <label for='use_meters'>Show altitude in metres (instead of feet)</label><br/><br/>"
-            "<label for='watch_sign'>Watch callsign prefixes (comma-separated, e.g. KLM,BAW — empty = off)</label>"
+            "<label for='watch_sign'>Filter on callsigns (comma-separated, e.g. KLM,BAW,EZ — empty = off)</label>"
             "<input id='watch_sign' name='watch_sign' type='text' maxlength='48' value='");
   page += ui::radar::watchCallsign();
   page += F("'><br/><br/>"
