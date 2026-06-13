@@ -42,6 +42,7 @@ jobs:
       - name: Build and merge
         run: |
           pio run -e supermini
+          pio run -t buildfs -e supermini
           pio run -t merge -e supermini
 
       - name: Package release files

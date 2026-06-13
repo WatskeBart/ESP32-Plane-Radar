@@ -9,6 +9,7 @@
 #include "hardware/display.h"
 #include "services/adsb_client.h"
 #include "services/radar_location.h"
+#include "services/web_portal.h"
 #include "services/wifi_setup.h"
 #include "ui/radar_display.h"
 #include "ui/radar_range.h"
@@ -66,10 +67,11 @@ void setup() {
   Serial.begin(115200);
   delay(500);
   Serial.println();
-  Serial.println("Plane Radar");
+  Serial.printf("Plane Radar  (firmware %s)\n", config::kFirmwareVersion);
 
   bootButtonInit();
   displayInit();
+  services::web::begin();  // Mount LittleFS holding the radar web assets.
   if (wifiShowsSetupScreenOnBoot()) {
     statusScreenPortal();
   }

@@ -41,6 +41,7 @@ cd "$ROOT"
 
 if [[ "$NO_BUILD" -eq 0 ]]; then
   "$PIO" run -e "$ENV"
+  "$PIO" run -t buildfs -e "$ENV"  # LittleFS image (web UI assets) for the merge
 fi
 
 "$PIO" run -t merge -e "$ENV"

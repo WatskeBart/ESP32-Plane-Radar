@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Device</title>
+  <link rel="stylesheet" href="/radar.css">
+</head>
+<body>
+  <main class="card">
+    <h1>Device</h1>
+
+    <fieldset>
+      <legend>Info</legend>
+      <dl id="info" class="info"></dl>
+    </fieldset>
+
+    <fieldset>
+      <legend>Firmware update (OTA)</legend>
+      <form id="ota-form">
+        <input id="fw" type="file" accept=".bin">
+        <button type="submit">Upload &amp; flash</button>
+      </form>
+      <progress id="prog" max="100" value="0"></progress>
+      <p class="muted">Upload a <code>firmware.bin</code> (not the merged image). The device reboots into the new firmware when done.</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Power</legend>
+      <div class="loc-actions">
+        <button id="restart">Restart device</button>
+        <button id="wifi-reset" class="danger">Reset WiFi credentials</button>
+      </div>
+      <p class="muted">Resetting WiFi keeps your locations, units, and range presets — it only clears the saved network and reboots into the <b>PlaneRadar-Setup</b> AP.</p>
+    </fieldset>
+
+    <p id="status" class="status" role="status"></p>
+    <nav class="links">
+      <a href="/">&larr; Back to menu</a>
+    </nav>
+  </main>
+  <script src="/device.js"></script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Saved Locations</title>
+  <link rel="stylesheet" href="/radar.css">
+</head>
+<body>
+  <main class="card">
+    <h1>Saved Locations</h1>
+    <div id="list"></div>
+
+    <section id="add-section">
+      <h2>Add Location</h2>
+      <form id="add-form">
+        <label for="name">Name</label>
+        <input id="name" type="text" maxlength="12">
+        <label for="lat">Latitude</label>
+        <input id="lat" type="number" step="0.000001">
+        <label for="lon">Longitude</label>
+        <input id="lon" type="number" step="0.000001">
+        <button type="submit">Save</button>
+      </form>
+    </section>
+
+    <p id="status" class="status" role="status"></p>
+    <nav class="links">
+      <a href="/">&larr; Back to menu</a>
+    </nav>
+  </main>
+  <script src="/locs.js"></script>
+</body>
+</html>
