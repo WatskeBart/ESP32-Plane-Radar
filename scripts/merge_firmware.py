@@ -1,10 +1,16 @@
-# PlatformIO post-build script: merge bootloader + partitions + app into one .bin
-# Usage: pio run -t merge -e supermini
+# PlatformIO post-build script: merge bootloader + partitions + app + LittleFS
+# into one .bin.
+# Usage:
+#   pio run -t buildfs -e supermini   # build the LittleFS image first
+#   pio run -t merge   -e supermini
 
 Import("env")
 
 import os
 from os.path import join
+
+# Offset of the LittleFS (spiffs subtype) partition, from partitions/plane_radar.csv.
+FS_OFFSET = "0x3B0000"
 
 
 def merge_firmware(source, target, env):
@@ -20,6 +26,7 @@ def merge_firmware(source, target, env):
     bootloader = join(build_dir, "bootloader.bin")
     partitions = join(build_dir, "partitions.bin")
     firmware = join(build_dir, f"{progname}.bin")
+    littlefs = join(build_dir, "littlefs.bin")
 
     for path, label in (
         (bootloader, "bootloader.bin"),
@@ -29,6 +36,12 @@ def merge_firmware(source, target, env):
     ):
         if not os.path.isfile(path):
             raise FileNotFoundError(f"Missing {label}: {path}")
+
+    if not os.path.isfile(littlefs):
+        raise FileNotFoundError(
+            f"Missing littlefs.bin: {littlefs}\n"
+            "Build the web UI filesystem image first:  pio run -t buildfs -e supermini"
+        )
 
     cmd = [
         env.subst("$PYTHONEXE"),
@@ -52,6 +65,8 @@ def merge_firmware(source, target, env):
         boot_app0,
         "0x10000",
         firmware,
+        FS_OFFSET,
+        littlefs,
     ]
     print(f"Merging flash image -> {merged}")
     env.Execute(" ".join(f'"{c}"' if " " in c else c for c in cmd))

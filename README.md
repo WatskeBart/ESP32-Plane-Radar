@@ -4,14 +4,15 @@
 
 **3D printed case (STL + assembly):** [MakerWorld](https://makerworld.com/en/models/2872376-esp32-plane-radar-live-ads-b-on-a-round-display#profileId-3207083) · **Firmware:** [Releases](https://github.com/WatskeBart/ESP32-Plane-Radar/releases)
 
-Firmware for an **ESP32-C3 Super Mini** and a **1.28″ round GC9A01** display (240×240). Shows a circular **ADS-B radar** around your configured location, with **WiFiManager** for first-time setup.
+Firmware for an **ESP32-C3 Super Mini** and a **1.28″ round GC9A01** display (240×240). Shows a circular **ADS-B radar** around your configured location, with **WiFiManager** for first-time setup. Once on your network, a built-in web UI (served from LittleFS) takes over for configuration, saved locations, OTA firmware updates, and device controls.
 
 ## What it does
 
-1. **Wi‑Fi setup** (if needed) — captive portal on AP **`PlaneRadar-Setup`**
+1. **Wi‑Fi setup** (if needed) — captive portal on AP **`PlaneRadar-Setup`** (WiFiManager)
 2. **Radar** — live aircraft from [adsb.fi](https://opendata.adsb.fi/) on a sonar-style grid
+3. **Web UI** (once connected) — own web server serving the radar/locations/device pages
 
-After Wi‑Fi is saved, the device reconnects automatically; the radar runs in the main loop with periodic ADS-B updates (~3 s).
+After Wi‑Fi is saved, the device reconnects automatically; the radar runs in the main loop with periodic ADS-B updates (~3 s). WiFiManager's pages are shown **only** in setup (AP) mode — once connected, only the custom web UI is served.
 
 ## Controls (BOOT, GPIO 9, active LOW)
 
@@ -22,24 +23,34 @@ After Wi‑Fi is saved, the device reconnects automatically; the radar runs in t
 
 During setup you can also hold BOOT at power-on to force a credential reset (same as the long press).
 
-## Wi‑Fi setup portal
+## Web interface
 
-**First-time setup** (no saved Wi‑Fi):
+The device runs **two different web UIs depending on its mode**:
 
-1. Connect to **`PlaneRadar-Setup`**
-2. Open **`http://plane-radar.local`** (preferred) or **`http://192.168.4.1`** — both are shown on the yellow setup screen; captive portal may open automatically
-3. Set home Wi‑Fi, then save
+| Mode | Server | URL | Purpose |
+| --- | --- | --- | --- |
+| **Setup (AP)** | WiFiManager | `http://plane-radar.local` / `http://192.168.4.1` | Join your Wi‑Fi (only when there are no/invalid credentials, or after a reset) |
+| **Connected (STA)** | Built-in radar UI (LittleFS) | `http://plane-radar.local` / `http://<device-ip>` | Menu → Configure Radar, Locations, Device/OTA |
 
-Or setup hardcoded AP credentials in [config.h](include/config.h#L23)
+Once connected to your network, WiFiManager's pages are no longer served — only the custom radar UI is reachable.
 
-**Reconfigure anytime** (after the device is on your network):
+### Setup (AP) mode
 
-1. Open **`http://plane-radar.local`** or **`http://<device-ip>`** (e.g. from your router or serial log at boot)
-2. Navigate to **Configure Radar** or **Locations** from the menu
+1. Connect to the **`PlaneRadar-Setup`** Wi‑Fi AP
+2. Open **`http://plane-radar.local`** or **`http://192.168.4.1`** (both shown on the yellow setup screen; the captive portal may open automatically)
+3. Select your home Wi‑Fi and save — the device reboots and connects
 
-The same portal runs on the setup AP and on the device's LAN IP while connected to Wi‑Fi. mDNS hostname is `plane-radar` → **plane-radar.local** (`kPortalHostname` in `config.h`). Some clients resolve `.local` slowly; use the IP if needed.
+Or hardcode fallback AP credentials in [config.h](include/config.h#L24).
 
-### Configure Radar page (`/radar`)
+### Connected (STA) mode
+
+Browse to **`http://plane-radar.local`** — or the device IP from your router. The hostname is `kPortalHostname` in [config.h](include/config.h#L21), the single name used for the setup AP, DHCP, and mDNS. Some clients resolve `.local` slowly — use the IP if needed. If you run more than one device on the same LAN, give each a distinct `kPortalHostname` to avoid a name clash.
+
+The root path (`/`) is a **menu** with three buttons; each page has a **← Back to menu** link.
+
+Pages: **Configure Radar** (`/radar`), **Locations** (`/locs`), **Device** (`/device`).
+
+#### Configure Radar (`/radar`)
 
 Saving returns to this page (not the main menu), so settings can be tweaked without navigating back.
 
@@ -56,9 +67,21 @@ Saving returns to this page (not the main menu), so settings can be tweaked with
 | **Watch callsign prefixes** | Comma-separated list of prefixes (e.g. `KLM,BAW`); only matching aircraft are shown — all others are hidden |
 | **Range presets** | Four configurable ring-3 distances in km (must be strictly increasing, 0.5–500 km) |
 
-### Locations page (`/locs`)
+#### Locations (`/locs`)
 
 Save up to **3 named locations** in flash. Use the **Use** button to switch the radar center to a saved location; **Delete** to remove it. Adding a new manual lat/lon on the main radar page clears the active saved location.
+
+#### Device (`/device`)
+
+The **Info** panel shows the running **firmware version** (git tag/commit, injected at build by [scripts/git_version.py](scripts/git_version.py)), hostname, mDNS name, IP, and connected network — handy for confirming an OTA actually took.
+
+| Action | Effect |
+| --- | --- |
+| **Firmware update (OTA)** | Upload a `firmware.bin` to flash over the air; the device reboots into the new build |
+| **Restart device** | Soft reboot |
+| **Reset WiFi credentials** | Clears **only** the saved Wi‑Fi (keeps locations, units, presets) and reboots into setup AP mode |
+
+OTA uses the dual app partitions (`app0`/`app1`); upload the plain **`firmware.bin`** (`.pio/build/supermini/firmware.bin`), **not** the merged image. The BOOT **hold 3 s** does a fuller reset (Wi‑Fi + location + units), whereas the Device page's reset is Wi‑Fi-only.
 
 After a reset, the device reboots and shows the setup screen immediately (no "Connecting" loop on stale credentials).
 
@@ -127,7 +150,7 @@ Edit **[`include/config.h`](include/config.h)** for hardware and behavior:
 
 | Area | Keys / notes |
 | --- | --- |
-| Portal | `kPortalApName`, `kPortalIp`, `kPortalHostname` / `kPortalHostUrl` (mDNS; needs `-DWM_MDNS` in `platformio.ini`) |
+| Portal / hostname | `kPortalApName`, `kPortalIp`, `kPortalHostname` (single hostname for the setup AP **and** the LAN/mDNS in STA mode) / `kPortalHostUrl`; needs `-DWM_MDNS` in `platformio.ini` |
 | Wi‑Fi timing | connect attempts, reconnect grace, portal timeout (`0` = no timeout) |
 | BOOT | `kBootPin`, `kBootResetHoldMs`, `kBootTapMinMs` |
 | Display SPI | pins, `kDisplayInvert`, `kDisplayRgbOrder`, `kDisplaySpiWriteHz` |
@@ -157,8 +180,14 @@ include/
     wifi_setup.h
     radar_location.h
     adsb_client.h
+    web_portal.h
 data/
   ui_font.vlw              — embedded smooth UI font (Noto Sans Bold)
+web/                       — LittleFS web assets (built into the FS image)
+  index.html               — root menu (Configure Radar / Locations / Device)
+  radar.html  radar.css  radar.js
+  locs.html   locs.js
+  device.html device.js
 scripts/
   build_large_airports.py
 src/
@@ -168,6 +197,7 @@ src/
   hardware/
   ui/
   services/
+    web_portal.cpp         — own web server: serves web/ + JSON API + OTA (STA mode)
 ```
 
 ## Wiring (GC9A01 ↔ ESP32-C3 Super Mini)
@@ -186,13 +216,16 @@ src/
 ## Build
 
 ```bash
-pio run -e supermini -t upload
+pio run -e supermini -t upload          # firmware
+pio run -e supermini -t uploadfs        # web UI assets (LittleFS, from web/)
 pio device monitor
 ```
 
 - PlatformIO env: **`supermini`**
 - Serial: **115200** baud
 - USB CDC on boot enabled in `platformio.ini` for the Super Mini
+- The web UI (`web/`) is flashed to the **LittleFS** partition via `uploadfs`; edit files in `web/` and re-run `uploadfs` to update them without rebuilding firmware
+- Flash layout is **dual-OTA** (`partitions/plane_radar.csv`): two ~1.81 MB app slots (`app0`/`app1`) so the Device page can update firmware over the air, plus a 256 KB LittleFS partition
 
 ### Debug build
 
@@ -224,10 +257,38 @@ Or via PlatformIO only (output: `.pio/build/supermini/firmware-merged.bin`):
 
 ```bash
 pio run -e supermini
+pio run -t buildfs -e supermini   # LittleFS image (web/ assets)
 pio run -t merge -e supermini
 ```
 
+The merged image bundles bootloader + partitions + app (`app0`) + the LittleFS web assets, so a single flash gives a fully working device. `app1` is left blank for the first OTA update.
+
 Put the board in download mode (hold **BOOT**, tap **RESET**), then flash with Chrome/Edge over USB.
+
+### Full wipe (erase everything)
+
+A complete erase clears **all** persisted state — Wi‑Fi credentials, saved locations, units, and range presets (NVS), both app slots, and the LittleFS web assets — for a clean factory state. A full erase is **required** after changing the partition table (e.g. upgrading from the old single-app layout to the dual-OTA layout).
+
+Put the board in download mode first (hold **BOOT**, tap **RESET**).
+
+**esptool (USB):**
+
+```bash
+esptool.py --chip esp32c3 erase_flash
+esptool.py --chip esp32c3 --baud 921600 write_flash 0x0 release/plane-radar-merged.bin
+```
+
+**PlatformIO** (builds + uploads firmware and web assets separately):
+
+```bash
+pio run -t erase -e supermini          # wipe the whole chip
+pio run -t upload -e supermini         # firmware
+pio run -t uploadfs -e supermini       # web UI assets (LittleFS)
+```
+
+**Web flasher** ([esptool-js](https://espressif.github.io/esptool-js/)): connect, click **Erase Flash**, then flash `plane-radar-merged.bin` at **0x0**.
+
+> A plain reflash over the top **keeps** NVS, so your Wi‑Fi and saved locations survive. Only `erase_flash` / **Erase Flash** wipes everything. For a Wi‑Fi-only reset (keeping locations/units), use the Device page button or hold **BOOT** 3 s — no reflash needed.
 
 ### CI and releases (GitHub Actions)
 

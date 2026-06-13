@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Configure Radar</title>
+  <link rel="stylesheet" href="/radar.css">
+</head>
+<body>
+  <main class="card">
+    <h1>Configure Radar</h1>
+    <form id="radar-form">
+      <label for="rlat">Latitude (deg)</label>
+      <input id="rlat" type="number" step="0.000001">
+
+      <label for="rlon">Longitude (deg)</label>
+      <input id="rlon" type="number" step="0.000001">
+
+      <fieldset>
+        <legend>Display</legend>
+        <label class="chk"><input type="checkbox" id="useMiles"> Display distances in miles</label>
+        <label class="chk"><input type="checkbox" id="showRunways"> Show airport runways</label>
+        <label class="chk"><input type="checkbox" id="showCount"> Show aircraft count on display</label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Aircraft tag items</legend>
+        <label class="chk"><input type="checkbox" id="showFlight"> Show flight number / callsign</label>
+        <label class="chk"><input type="checkbox" id="showType"> Show aircraft type</label>
+        <label class="chk"><input type="checkbox" id="showAlt"> Show altitude</label>
+        <label class="chk"><input type="checkbox" id="useMeters"> Altitude in metres (instead of feet)</label>
+      </fieldset>
+
+      <label for="watch">Filter on callsigns (comma-separated, e.g. KLM,BAW,EZ — empty = off)</label>
+      <input id="watch" type="text" maxlength="48">
+
+      <fieldset>
+        <legend>Range presets (km, must be increasing)</legend>
+        <div class="presets">
+          <label>Preset 1<input id="p0" type="number" step="0.1" min="0.5" max="500"></label>
+          <label>Preset 2<input id="p1" type="number" step="0.1" min="0.5" max="500"></label>
+          <label>Preset 3<input id="p2" type="number" step="0.1" min="0.5" max="500"></label>
+          <label>Preset 4<input id="p3" type="number" step="0.1" min="0.5" max="500"></label>
+        </div>
+      </fieldset>
+
+      <button type="submit">Save</button>
+      <p id="status" class="status" role="status"></p>
+    </form>
+    <nav class="links">
+      <a href="/">&larr; Back to menu</a>
+    </nav>
+  </main>
+  <script src="/radar.js"></script>
+</body>
+</html>

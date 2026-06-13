@@ -50,6 +50,7 @@ struct TextLine {
   const char* text;
   float vlw_size;
   const lgfx::GFXfont* gfx_font;
+  uint16_t color;  // 0 = inherit the block's foreground color
 };
 
 int lineHeightGfx(const lgfx::GFXfont* font) {
@@ -70,9 +71,19 @@ void applyLineStyle(const TextLine& line) {
   }
 }
 
-void drawTextBlock(uint16_t bg, uint16_t fg, const TextLine* lines, size_t count) {
+constexpr int kBorderRadius = 118;
+
+void drawCircleBorder(uint16_t color) {
+  tft.drawCircle(kCenterX, kCenterY, kBorderRadius, color);
+  tft.drawCircle(kCenterX, kCenterY, kBorderRadius - 1, color);
+}
+
+void drawTextBlock(uint16_t bg, uint16_t fg, const TextLine* lines, size_t count,
+                   uint16_t border_color = 0) {
   tft.fillScreen(bg);
-  tft.setTextColor(fg, bg);
+  if (border_color != 0) {
+    drawCircleBorder(border_color);
+  }
   tft.setTextDatum(textdatum_t::middle_center);
 
   int total_h = 0;
@@ -90,6 +101,7 @@ void drawTextBlock(uint16_t bg, uint16_t fg, const TextLine* lines, size_t count
   int y = (config::kDisplayHeight - total_h) / 2;
   for (size_t i = 0; i < count; ++i) {
     applyLineStyle(lines[i]);
+    tft.setTextColor(lines[i].color != 0 ? lines[i].color : fg, bg);
     const int h =
         displayFontIsSmooth() ? lineHeightVlw(lines[i].vlw_size)
                               : lineHeightGfx(lines[i].gfx_font);
@@ -210,24 +222,25 @@ void statusScreenConnectingTick() {
 
 void statusScreenPortal() {
   const TextLine lines[] = {
-      {"Wi-Fi setup", 1.15f, &kPortalGfxTitle},
-      {"1. Join network:", 1.05f, &kPortalGfxBody},
-      {config::kPortalApName, 1.12f, &kPortalGfxEmphasis},
-      {"2. Open in browser:", 1.05f, &kPortalGfxBody},
-      {config::kPortalHostUrl, 1.12f, &kPortalGfxEmphasis},
-      {"or 192.168.4.1", 1.0f, &kPortalGfxBody},
+      {"Wi-Fi setup", 1.0f, &kPortalGfxBody, config::kColorWhite},
+      {"1. Join network:", 0.92f, &kConnectingGfxDetail, config::kColorWhite},
+      {config::kPortalApName, 1.0f, &kPortalGfxBody, config::kColorCyan},
+      {"2. Open in browser:", 0.92f, &kConnectingGfxDetail, config::kColorWhite},
+      {config::kPortalHostUrl, 1.0f, &kPortalGfxBody, config::kColorGreen},
+      {"or", 0.85f, &kConnectingGfxDetail, config::kColorWhite},
+      {"192.168.4.1", 0.85f, &kConnectingGfxDetail, config::kColorGreen},
   };
-  drawTextBlock(config::kColorYellow, config::kTextOnYellow, lines,
-                sizeof(lines) / sizeof(lines[0]));
+  drawTextBlock(config::kColorBlack, config::kColorWhite, lines,
+                sizeof(lines) / sizeof(lines[0]), config::kColorCyan);
 }
 
 void statusScreenConnectFailed() {
   const TextLine lines[] = {
-      {"Could not connect", 1.15f, &kGfxTitle},
-      {"Check Wi-Fi password", 1.0f, &kGfxBody},
-      {"and signal strength.", 1.0f, &kGfxBody},
-      {"Hold BOOT 3 sec", 1.0f, &kGfxBody},
-      {"to reset Wi-Fi", 1.0f, &kGfxBody},
+      {"Could not connect", 1.15f, &kGfxTitle, 0},
+      {"Check Wi-Fi password", 1.0f, &kGfxBody, 0},
+      {"and signal strength.", 1.0f, &kGfxBody, 0},
+      {"Hold BOOT 3 sec", 1.0f, &kGfxBody, 0},
+      {"to reset Wi-Fi", 1.0f, &kGfxBody, 0},
   };
   drawTextBlock(config::kColorYellow, config::kTextOnYellow, lines,
                 sizeof(lines) / sizeof(lines[0]));
@@ -235,8 +248,8 @@ void statusScreenConnectFailed() {
 
 void statusScreenWifiReset() {
   const TextLine lines[] = {
-      {"Wi-Fi reset", 1.15f, &kPortalGfxTitle},
-      {"Restarting...", 1.05f, &kPortalGfxBody},
+      {"Wi-Fi reset", 1.15f, &kPortalGfxTitle, 0},
+      {"Restarting...", 1.05f, &kPortalGfxBody, 0},
   };
   drawTextBlock(config::kColorYellow, config::kTextOnYellow, lines,
                 sizeof(lines) / sizeof(lines[0]));

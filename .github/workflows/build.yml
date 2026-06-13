@@ -43,6 +43,9 @@ jobs:
       - name: Build
         run: pio run -e supermini
 
+      - name: Build LittleFS image
+        run: pio run -t buildfs -e supermini
+
       - name: Merge web-flash image
         run: pio run -t merge -e supermini
 
@@ -54,5 +57,6 @@ jobs:
           path: |
             .pio/build/supermini/firmware-merged.bin
             .pio/build/supermini/firmware.bin
+            .pio/build/supermini/littlefs.bin
             .pio/build/supermini/bootloader.bin
             .pio/build/supermini/partitions.bin
