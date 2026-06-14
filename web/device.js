@@ -51,4 +51,16 @@ $("wifi-reset").addEventListener("click", async () => {
   setStatus("WiFi cleared — connect to the PlaneRadar-Setup AP to reconfigure.", true);
 });
 
+$("device-reset").addEventListener("click", async () => {
+  if (!confirm("Reset the device and clear all settings?")) return;
+  setStatus("Resetting device…");
+  try {
+    await fetch("/api/device/reset", { method: "POST" });
+  } catch (e) {
+    /* expected: connection drops as the device reboots */
+  }
+  setStatus("Device reset — reconnect in a few seconds.", true);
+});
+
+
 loadInfo();

@@ -200,6 +200,12 @@ void handleWifiReset() {
   wifiEraseCredentialsAndReboot();  // erases WiFi creds, then reboots to AP setup
 }
 
+void handleDeviceReset() {
+  s_server.send(200, "application/json", "{\"ok\":true}");
+  delay(300);
+  wifiResetCredentialsAndReboot();  // clears WiFi creds, location, units, and presets, then reboots to AP setup
+}
+
 void registerRoutes() {
   // Pages.
   s_server.on("/", HTTP_GET, [] { serveFile("/index.html"); });
@@ -219,7 +225,7 @@ void registerRoutes() {
   s_server.on("/api/device", HTTP_GET, handleGetDevice);
   s_server.on("/api/restart", HTTP_POST, handleRestart);
   s_server.on("/api/wifi/reset", HTTP_POST, handleWifiReset);
-
+  s_server.on("/api/device/reset", HTTP_POST, handleDeviceReset);
   s_server.onNotFound([] { s_server.send(404, "text/plain", "Not found"); });
 }
 

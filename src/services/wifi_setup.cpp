@@ -358,6 +358,7 @@ void bootButtonPollLongPress() {
 
 void wifiResetCredentialsAndReboot() {
   resetWifiCredentials();
+  Serial.println("WiFi credentials, location, and units cleared — rebooting to setup AP");
   statusScreenWifiReset();
   delay(800);
   esp_restart();
