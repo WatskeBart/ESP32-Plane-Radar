@@ -1,10 +1,10 @@
-# Tag a release (v1.0.0) to attach firmware to GitHub Releases.
+# Tag a release (1.0.0) to attach firmware to GitHub Releases.
 name: Release
 
 on:
   push:
     tags:
-      # SemVer 2.0.0: vMAJOR.MINOR.PATCH with optional -prerelease / +build
+      # SemVer 2.0.0: MAJOR.MINOR.PATCH with optional -prerelease / +build
       - "[0-9]+.[0-9]+.[0-9]+"
       - "[0-9]+.[0-9]+.[0-9]+-*"
       - "[0-9]+.[0-9]+.[0-9]++*"

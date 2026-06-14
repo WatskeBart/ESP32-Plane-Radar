@@ -3,7 +3,6 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <LittleFS.h>
-#include <Update.h>
 #include <WebServer.h>
 #include <WiFi.h>
 #include <esp_system.h>
@@ -201,39 +200,6 @@ void handleWifiReset() {
   wifiEraseCredentialsAndReboot();  // erases WiFi creds, then reboots to AP setup
 }
 
-// --- OTA firmware update (writes to the inactive app slot, then reboots) ---
-
-void handleUpdateUpload() {
-  HTTPUpload& up = s_server.upload();
-  if (up.status == UPLOAD_FILE_START) {
-    Serial.printf("OTA start: %s\n", up.filename.c_str());
-    if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
-      Update.printError(Serial);
-    }
-  } else if (up.status == UPLOAD_FILE_WRITE) {
-    if (Update.write(up.buf, up.currentSize) != up.currentSize) {
-      Update.printError(Serial);
-    }
-  } else if (up.status == UPLOAD_FILE_END) {
-    if (Update.end(true)) {
-      Serial.printf("OTA done: %u bytes\n", up.totalSize);
-    } else {
-      Update.printError(Serial);
-    }
-  }
-}
-
-void handleUpdateDone() {
-  const bool ok = !Update.hasError();
-  s_server.sendHeader("Connection", "close");
-  s_server.send(ok ? 200 : 500, "application/json",
-                ok ? "{\"ok\":true}" : "{\"ok\":false}");
-  if (ok) {
-    delay(500);
-    esp_restart();
-  }
-}
-
 void registerRoutes() {
   // Pages.
   s_server.on("/", HTTP_GET, [] { serveFile("/index.html"); });
@@ -253,9 +219,6 @@ void registerRoutes() {
   s_server.on("/api/device", HTTP_GET, handleGetDevice);
   s_server.on("/api/restart", HTTP_POST, handleRestart);
   s_server.on("/api/wifi/reset", HTTP_POST, handleWifiReset);
-
-  // OTA firmware upload.
-  s_server.on("/update", HTTP_POST, handleUpdateDone, handleUpdateUpload);
 
   s_server.onNotFound([] { s_server.send(404, "text/plain", "Not found"); });
 }

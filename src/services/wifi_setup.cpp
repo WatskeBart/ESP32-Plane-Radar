@@ -176,7 +176,7 @@ void ensureWifiManager() {
   s_wm.setHostname(config::kPortalHostname);
   s_wm.setAPCallback(onConfigPortalApStarted);
   // AP/setup mode shows only WiFiManager. The custom radar UI (Configure Radar,
-  // Locations, Device/OTA) is served from LittleFS in station mode instead.
+  // Locations, Device) is served from LittleFS in station mode instead.
   std::vector<const char*> menu = {"wifi", "info", "sep", "exit"};
   s_wm.setMenu(menu);
   s_wm_configured = true;

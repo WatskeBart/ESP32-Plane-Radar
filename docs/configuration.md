@@ -55,5 +55,5 @@ src/
   hardware/
   ui/
   services/
-    web_portal.cpp         — own web server: serves web/ + JSON API + OTA (STA mode)
+    web_portal.cpp         — own web server: serves web/ + JSON API (STA mode)
 ```
