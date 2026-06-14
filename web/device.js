@@ -2,7 +2,6 @@
 
 const $ = (id) => document.getElementById(id);
 const statusEl = $("status");
-const prog = $("prog");
 
 function setStatus(msg, ok) {
   statusEl.textContent = msg || "";
@@ -29,36 +28,6 @@ async function loadInfo() {
     setStatus("Failed to load device info: " + e.message, false);
   }
 }
-
-// --- OTA upload (XHR so we get progress) ---
-$("ota-form").addEventListener("submit", (ev) => {
-  ev.preventDefault();
-  const file = $("fw").files[0];
-  if (!file) {
-    setStatus("Choose a .bin file first.", false);
-    return;
-  }
-  const fd = new FormData();
-  fd.append("firmware", file, file.name);
-
-  const xhr = new XMLHttpRequest();
-  prog.style.display = "block";
-  prog.value = 0;
-  xhr.upload.onprogress = (e) => {
-    if (e.lengthComputable) prog.value = Math.round((e.loaded / e.total) * 100);
-  };
-  xhr.onload = () => {
-    if (xhr.status === 200) {
-      setStatus("Update OK — device is rebooting into the new firmware.", true);
-    } else {
-      setStatus("Update failed (HTTP " + xhr.status + ").", false);
-    }
-  };
-  xhr.onerror = () => setStatus("Update failed — connection lost.", false);
-  xhr.open("POST", "/update");
-  setStatus("Uploading firmware…");
-  xhr.send(fd);
-});
 
 $("restart").addEventListener("click", async () => {
   if (!confirm("Restart the device now?")) return;

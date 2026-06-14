@@ -7,7 +7,7 @@ The device runs **two different web UIs depending on its mode**:
 | Mode | Server | URL | Purpose |
 | --- | --- | --- | --- |
 | **Setup (AP)** | WiFiManager | `http://plane-radar.local` / `http://192.168.4.1` | Join your Wi‑Fi (only when there are no/invalid credentials, or after a reset) |
-| **Connected (STA)** | Built-in radar UI (LittleFS) | `http://plane-radar.local` / `http://<device-ip>` | Menu → Configure Radar, Locations, Device/OTA |
+| **Connected (STA)** | Built-in radar UI (LittleFS) | `http://plane-radar.local` / `http://<device-ip>` | Menu → Configure Radar, Locations, Device |
 
 Once connected to your network, WiFiManager's pages are no longer served — only the custom radar UI is reachable.
 
@@ -55,14 +55,15 @@ Save up to **3 named locations** in flash. Use the **Use** button to switch the 
 
 ### Device (`/device`)
 
-The **Info** panel shows the running **firmware version** (git tag/commit, injected at build by [scripts/git_version.py](../scripts/git_version.py)), hostname, mDNS name, IP, and connected network — handy for confirming an OTA actually took.
+The **Info** panel shows the running **firmware version** (git tag/commit, injected at build by [scripts/git_version.py](../scripts/git_version.py)), hostname, mDNS name, IP, and connected network.
 
 | Action | Effect |
 | --- | --- |
-| **Firmware update (OTA)** | Upload a `firmware.bin` to flash over the air; the device reboots into the new build |
 | **Restart device** | Soft reboot |
 | **Reset WiFi credentials** | Clears **only** the saved Wi‑Fi (keeps locations, units, presets) and reboots into setup AP mode |
 
-OTA uses the dual app partitions (`app0`/`app1`); upload the plain **`firmware.bin`** (`.pio/build/supermini/firmware.bin`), **not** the merged image. The BOOT **hold 3 s** does a fuller reset (Wi‑Fi + location + units), whereas the Device page's reset is Wi‑Fi-only.
+The BOOT **hold 3 s** does a fuller reset (Wi‑Fi + location + units), whereas the Device page's reset is Wi‑Fi-only.
 
 After a reset, the device reboots and shows the setup screen immediately (no "Connecting" loop on stale credentials).
+
+To update firmware, flash a new merged image via [ESPWebTool](https://esptool.spacehuhn.com/) — see [Building & flashing](building.md).

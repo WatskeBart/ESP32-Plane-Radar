@@ -10,15 +10,13 @@ import os
 from os.path import join
 
 # Offset of the LittleFS (spiffs subtype) partition, from partitions/plane_radar.csv.
-FS_OFFSET = "0x3B0000"
+FS_OFFSET = "0x300000"
 
 
 def merge_firmware(source, target, env):
     build_dir = env.subst("$BUILD_DIR")
     progname = env.subst("${PROGNAME}")
-    framework_dir = env.PioPlatform().get_package_dir("framework-arduinoespressif32")
     esptool = join(env.PioPlatform().get_package_dir("tool-esptoolpy"), "esptool.py")
-    boot_app0 = join(framework_dir, "tools", "partitions", "boot_app0.bin")
     merged = join(build_dir, "firmware-merged.bin")
     mcu = env.BoardConfig().get("build.mcu", "esp32c3")
     flash_size = env.BoardConfig().get("upload.flash_size", "4MB")
@@ -31,7 +29,6 @@ def merge_firmware(source, target, env):
     for path, label in (
         (bootloader, "bootloader.bin"),
         (partitions, "partitions.bin"),
-        (boot_app0, "boot_app0.bin"),
         (firmware, f"{progname}.bin"),
     ):
         if not os.path.isfile(path):
@@ -61,8 +58,6 @@ def merge_firmware(source, target, env):
         bootloader,
         "0x8000",
         partitions,
-        "0xe000",
-        boot_app0,
         "0x10000",
         firmware,
         FS_OFFSET,
