@@ -94,3 +94,7 @@ During setup you can also hold BOOT at power-on to force a credential reset (sam
 - [LovyanGFX](https://github.com/lovyan03/LovyanGFX)
 - [WiFiManager](https://github.com/tzapu/WiFiManager)
 - [ArduinoJson](https://github.com/bblanchon/ArduinoJson)
+
+## Credits
+
+This project is a fork of [MatixYo/ESP32-Plane-Radar](https://github.com/MatixYo/ESP32-Plane-Radar) by [MatixYo](https://github.com/MatixYo). All credit for the original concept and implementation goes to them.
