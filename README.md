@@ -38,7 +38,7 @@ The device is now in download mode. It will not show anything on the display.
 
 ### Step 3 — Open ESPWebTool
 
-Open [esptool.spacehuhn.com](https://esptool.spacehuhn.com/) in Chrome or Edge.
+Open [ESPWebTool](https://watskebart.github.io/espwebtool/) in Chrome or Edge.
 
 Click **Connect**, select the device from the port list, and click **Connect** again.
 
@@ -50,8 +50,8 @@ Click **Erase** and wait for it to complete.
 
 ### Step 5 — Flash the firmware
 
-1. Set the **offset** field to `0x0`
-2. Click **Choose file** and select the `.bin` you downloaded in Step 1
+1. Click **RESET ALL** to reset the default programming blocks
+2. Click **SELECT** and select the `.bin` you downloaded in Step 1
 3. Click **Program**
 
 Wait for the progress bar to finish. When it says "Done", the flash is complete.
