@@ -14,10 +14,12 @@ namespace services::adsb {
 
 namespace {
 
+constexpr char kApiHost[] = "opendata.adsb.fi";
 constexpr char kApiBase[] = "https://opendata.adsb.fi/api/v3/lat/";
 constexpr float kKmPerNm = 1.852f;
-constexpr int kConnectAttemptMs = 200;
+constexpr int kConnectAttemptMs = 5000;
 constexpr unsigned long kRequestTimeoutMs = 10000;
+constexpr unsigned long kHandshakeTimeoutSec = 10;
 
 Aircraft s_aircraft[kMaxAircraft];
 size_t s_aircraft_count = 0;
@@ -30,61 +32,23 @@ void pollNetwork() {
   }
 }
 
-int performGetWithPoll(HTTPClient& http) {
+int performGetWithPoll(HTTPClient& http, WiFiClientSecure& client) {
   http.setConnectTimeout(kConnectAttemptMs);
-  const unsigned long deadline = millis() + kRequestTimeoutMs;
-  while (millis() < deadline) {
-    pollNetwork();
-    const int code = http.GET();
-    if (code > 0) {
-      return code;
-    }
-    if (code != HTTPC_ERROR_CONNECTION_REFUSED &&
-        code != HTTPC_ERROR_NOT_CONNECTED) {
-      return code;
-    }
-    delay(5);
-  }
-  return HTTPC_ERROR_READ_TIMEOUT;
-}
+  pollNetwork();
+  const unsigned long started_ms = millis();
+  const int code = http.GET();
+  const unsigned long elapsed_ms = millis() - started_ms;
+  pollNetwork();
 
-bool readResponseBodyWithPoll(HTTPClient& http, String& payload) {
-  WiFiClient* stream = http.getStreamPtr();
-  if (stream == nullptr) {
-    return false;
+  if (code < 0) {
+    char tls_error[96] = "";
+    const int tls_code = client.lastError(tls_error, sizeof(tls_error));
+    Serial.printf("adsb: GET failed http=%d tls=%d (%s) after %lu ms\n",
+                  code, tls_code, tls_error, elapsed_ms);
+  } else {
+    Serial.printf("adsb: HTTP %d after %lu ms\n", code, elapsed_ms);
   }
-
-  const int content_length = http.getSize();
-  if (content_length > 0) {
-    payload.reserve(static_cast<unsigned>(content_length + 1));
-  }
-
-  uint8_t buffer[512];
-  const unsigned long deadline = millis() + kRequestTimeoutMs;
-  while (millis() < deadline) {
-    pollNetwork();
-    const int available = stream->available();
-    if (available > 0) {
-      const int to_read =
-          available > static_cast<int>(sizeof(buffer)) ? static_cast<int>(sizeof(buffer))
-                                                       : available;
-      const int read_bytes = stream->readBytes(buffer, to_read);
-      if (read_bytes > 0) {
-        payload.concat(reinterpret_cast<const char*>(buffer),
-                       static_cast<unsigned>(read_bytes));
-      }
-    }
-    if (content_length > 0 &&
-        static_cast<int>(payload.length()) >= content_length) {
-      break;
-    }
-    if (!http.connected() && stream->available() <= 0) {
-      break;
-    }
-    delay(1);
-  }
-
-  return payload.length() > 0;
+  return code;
 }
 
 float kmToNauticalMiles(float km) { return km / kKmPerNm; }
@@ -238,6 +202,15 @@ bool fetchUpdate(double center_lat, double center_lon, float fetch_radius_km) {
 
   WiFiClientSecure client;
   client.setInsecure();
+  client.setHandshakeTimeout(kHandshakeTimeoutSec);
+
+  IPAddress api_ip;
+  if (WiFi.hostByName(kApiHost, api_ip) != 1) {
+    Serial.printf("adsb: DNS failed for %s\n", kApiHost);
+    return false;
+  }
+  Serial.printf("adsb: DNS %s -> %s\n", kApiHost,
+                api_ip.toString().c_str());
 
   HTTPClient http;
   if (!http.begin(client, url)) {
@@ -246,7 +219,11 @@ bool fetchUpdate(double center_lat, double center_lon, float fetch_radius_km) {
   }
 
   http.setTimeout(kRequestTimeoutMs);
-  const int code = performGetWithPoll(http);
+  // Cloudflare currently serves HTTP/1.1 responses with chunked transfer
+  // encoding. ArduinoJson reads getStreamPtr() directly, so request HTTP/1.0
+  // to receive an identity body terminated by connection close instead.
+  http.useHTTP10(true);
+  const int code = performGetWithPoll(http, client);
   if (code != HTTP_CODE_OK) {
     Serial.printf("adsb: HTTP %d\n", code);
     http.end();
@@ -283,6 +260,7 @@ bool fetchUpdate(double center_lat, double center_lon, float fetch_radius_km) {
   const DeserializationError err = deserializeJson(doc, *stream, DeserializationOption::Filter(filter));
   if (err) {
     Serial.printf("adsb: JSON parse error: %s\n", err.c_str());
+    http.end();
     return false;
   }
   http.end();
